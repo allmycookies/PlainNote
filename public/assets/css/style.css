@@ -127,17 +127,16 @@ main { flex: 1; display: flex; overflow: hidden; }
 .tool-group label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; }
 .tool-btn { background: #333; border: 1px solid #444; color: #eee; cursor: pointer; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; min-width: 24px; text-align: center; }
 .tool-btn:hover { background: #444; border-color: var(--accent); }
+.lane-head {display: flex; flex-direction: row; justify-content: space-between; align-items: stretch; background: var(--bg-panel); border-bottom: 1px solid var(--border); padding: 5px 10px;}
+.lane-head h3 {margin: 0px}
 
 textarea#editor {
     flex: 1; background: var(--bg-dark); color: var(--text-main); border: none; resize: none; padding: 20px;
     font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 14px; line-height: 1.6; outline: none;
 }
 
-.projections-pane { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; background: var(--bg-dark); }
-.lane { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-width: 0; }
-.lane:last-child { border-right: none; }
-.lane-head { padding: 8px 10px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-.lane-head h3 { margin: 0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.projections-pane { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; background: var(--bg-dark); min-height: 0; }
+.lane { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-width: 0; min-height: 0; overflow: hidden; }
 .lane-content { flex: 1; overflow-y: auto; padding: 10px; }
 
 /* Cards & Colors */
@@ -191,7 +190,7 @@ footer#calendar-pane { height: var(--cal-height); min-height: 200px; max-height:
 .g-task-row { height: 30px; border-bottom: 1px solid #333; padding: 5px 10px; font-size: 0.8rem; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-timeline-area { display: flex; flex-direction: column; overflow-x: auto; position: relative; }
 .g-timeline-header { height: 30px; background: var(--bg-panel); flex-shrink:0; border-bottom: 1px solid #444; position: relative; }
-.g-body { position: relative; height: 100%; background: repeating-linear-gradient(to right, var(--bg-panel), var(--bg-panel) 1px, transparent 1px, transparent 20px); }
+.g-body { position: relative; height: 100%;}
 .g-body-row { height: 30px; border-bottom: 1px solid #333; position: relative; width: 100%; }
 .g-bar-item { position: absolute; top: 5px; height: 20px; background: var(--prio-2); border-radius: 3px; font-size: 0.7rem; color: black; padding-left: 5px; line-height: 20px; overflow: hidden; }
 

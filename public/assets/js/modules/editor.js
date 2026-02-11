@@ -1,0 +1,42 @@
+export function bindEditorEvents(dom, callbacks) {
+    let timeout;
+    // Input with Debounce (Optimization)
+    dom.editor.addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            callbacks.onInput(dom.editor.value);
+        }, 150);
+    });
+
+    document.getElementById('pick-s-date')?.addEventListener('change', (e) => insertAtCursor(dom.editor, `[s ${e.target.value}]`, callbacks.onInput));
+    document.getElementById('pick-s-time')?.addEventListener('change', (e) => insertAtCursor(dom.editor, `[s ${e.target.value}]`, callbacks.onInput));
+    document.getElementById('pick-e-date')?.addEventListener('change', (e) => insertAtCursor(dom.editor, `[e ${e.target.value}]`, callbacks.onInput));
+    document.getElementById('pick-e-time')?.addEventListener('change', (e) => insertAtCursor(dom.editor, `[e ${e.target.value}]`, callbacks.onInput));
+}
+
+export function insertAtCursor(el, text, updateCallback) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const val = el.value;
+    el.value = val.substring(0, start) + text + val.substring(end);
+    el.selectionStart = el.selectionEnd = start + text.length;
+    el.focus();
+    updateCallback(el.value);
+}
+
+export function highlightLine(dom, lineIndex) {
+    const textarea = dom.editor;
+    const lines = textarea.value.split(/\r?\n/);
+    if(lineIndex >= lines.length) return;
+
+    let startPos = 0;
+    for(let i=0; i < lineIndex; i++) startPos += lines[i].length + 1;
+    const endPos = startPos + lines[lineIndex].length;
+
+    textarea.focus();
+    textarea.setSelectionRange(startPos, endPos);
+
+    const lineHeight = 24;
+    const scrollPos = (lineIndex * lineHeight) - (textarea.clientHeight / 2);
+    textarea.scrollTop = scrollPos > 0 ? scrollPos : 0;
+}
