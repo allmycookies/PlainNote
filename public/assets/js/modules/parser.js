@@ -20,6 +20,23 @@ export function parseContent(content, config) {
 
     lines.forEach((line, idx) => {
         const trim = line.trim();
+        
+        // 1. Check for Description (starts with <<)
+        if (trim.startsWith('<<')) {
+            if (items.length > 0) {
+                const lastItem = items[items.length - 1];
+                const descText = trim.substring(2).trim();
+                if (lastItem.description) {
+                    lastItem.description += "\n" + descText;
+                } else {
+                    lastItem.description = descText;
+                }
+            }
+            // Do not continue parsing this line as a task
+            return;
+        }
+
+        // 2. Check for Task/Item (starts with [] or [-])
         if(!trim.match(/^(\[\]|\[-\])/)) return;
 
         // Cache Key: trim + todayStr
@@ -28,15 +45,21 @@ export function parseContent(content, config) {
         let itemData;
         if (lineCache.has(cacheKey)) {
             itemData = lineCache.get(cacheKey);
+            // Must decouple from cache ref because we modify it (e.g. description) later? 
+            // Actually description is added to the instance in 'items', not the cached object.
+            // But wait, parseLineInternal returns a fresh object structure.
+            // Safe to copy.
+            itemData = { ...itemData }; 
         } else {
             itemData = parseLineInternal(trim, config, todayStr, defDur);
-            lineCache.set(cacheKey, itemData);
+            lineCache.set(cacheKey, { ...itemData }); // Cache a copy
         }
 
         if (itemData) {
             items.push({
                 ...itemData,
-                id: idx
+                id: idx,
+                description: '' // Init description
             });
         }
     });
@@ -49,6 +72,7 @@ function parseLineInternal(trim, config, todayStr, defDur) {
         title: trim,
         type: 'a',
         prio: 0,
+        marker: 0, // 0 = none
         start: null,
         end: null,
         recur: null,
@@ -60,6 +84,10 @@ function parseLineInternal(trim, config, todayStr, defDur) {
 
     const pMatch = trim.match(/\[p([1-5])\]/i);
     if(pMatch) item.prio = parseInt(pMatch[1]);
+    
+    // Parse Marker [m1] - [m9]
+    const mMatch = trim.match(/\[m([1-9])\]/i);
+    if(mMatch) item.marker = parseInt(mMatch[1]);
 
     const wMatch = trim.match(/\[w\s+([^\]]+)\]/i);
     if(wMatch) item.recur = wMatch[1].toLowerCase().replace(/\s/g, '');
@@ -97,9 +125,10 @@ function parseLineInternal(trim, config, todayStr, defDur) {
 
     if (!sDateStr && eDateStr) sDateStr = eDateStr;
     if (!eDateStr && sDateStr) eDateStr = sDateStr;
+    
     if (!sDateStr && !item.recur) sDateStr = todayStr;
     if (!eDateStr && !item.recur) eDateStr = todayStr;
-
+    
     if (item.recur && !sDateStr) sDateStr = todayStr;
     if (item.recur && !eDateStr) eDateStr = todayStr;
 
@@ -124,6 +153,7 @@ function parseLineInternal(trim, config, todayStr, defDur) {
         .replace(/^(\[\]|\[-\])\s*/, '')
         .replace(/\[[ant]\]/gi, '')
         .replace(/\[p[1-5]\]/gi, '')
+        .replace(/\[m[1-9]\]/gi, '') // Remove Marker Tag
         .replace(/\[[se](z|t)?\s*[\d\-\.:]+\s*\]/gi, '')
         .replace(/\[w\s+[^\]]+\]/gi, '')
         .replace(/\[bis\s+[^\]]+\]/gi, '')

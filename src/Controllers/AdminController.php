@@ -11,7 +11,20 @@ class AdminController extends Controller {
         $action = $_POST['action'] ?? '';
 
         if ($action === 'create_user') {
-            try { User::create($_POST['username'], $_POST['password']); } catch(\Exception $e){}
+            try { 
+                // NEU: Rolle (is_admin) wird jetzt übergeben
+                $isAdmin = isset($_POST['is_admin']) ? (int)$_POST['is_admin'] : 0;
+                User::create($_POST['username'], $_POST['password'], $isAdmin); 
+            } catch(\Exception $e){}
+        }
+        // NEU: User Update (Name & Rolle)
+        elseif ($action === 'update_user') {
+            try {
+                // Eigener Admin-Status Schutz könnte hier rein, aber wir lassen es "raw"
+                User::update($_POST['user_id'], $_POST['username'], (int)$_POST['is_admin']);
+            } catch(\Exception $e) {
+                $_SESSION['flash_msg'] = "Fehler beim Aktualisieren.";
+            }
         }
         elseif ($action === 'delete_user') {
             if ($_POST['user_id'] != $this->user()['id']) User::delete($_POST['user_id']);
@@ -29,7 +42,8 @@ class AdminController extends Controller {
             Project::delete($_POST['slug']);
         }
         elseif ($action === 'assign_perm') {
-            try { Permission::assign($_POST['user_id'], $_POST['project_id']); } catch(\Exception $e){}
+            try { Permission::assign($_POST['user_id'], $_POST['project_id']);
+            } catch(\Exception $e){}
         }
         elseif ($action === 'revoke_perm') {
             Permission::revoke($_POST['user_id'], $_POST['project_id']);

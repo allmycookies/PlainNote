@@ -11,7 +11,8 @@ class ApiController extends Controller {
 
         $proj = Project::findBySlug($slug);
         if (!$proj || !Permission::hasAccess($user['id'], $proj['id'], $user['is_admin'])) {
-            http_response_code(403); die();
+            http_response_code(403);
+            die();
         }
 
         $input = json_decode(file_get_contents('php://input'), true);
@@ -27,7 +28,6 @@ class ApiController extends Controller {
                 ':config' => json_encode($input['config']),
                 ':ref' => $lastSync
             ]);
-
             if ($stmt->rowCount() === 0) {
                 http_response_code(409);
                 $current = $projDb->query("SELECT text, updated_at FROM content WHERE id = 1")->fetch();
@@ -45,5 +45,27 @@ class ApiController extends Controller {
 
         $newRow = $projDb->query("SELECT updated_at FROM content WHERE id = 1")->fetch();
         $this->json(['status' => 'ok', 'updated_at' => $newRow['updated_at']]);
+    }
+
+    // NEU: Leichter Check, nur Timestamp lesen
+    public function check($slug) {
+        $this->requireLogin();
+        $user = $this->user();
+
+        $proj = Project::findBySlug($slug);
+        // Prüfen ob Projekt existiert und Zugriff erlaubt ist
+        if (!$proj || !Permission::hasAccess($user['id'], $proj['id'], $user['is_admin'])) {
+            http_response_code(403);
+            die();
+        }
+
+        try {
+            $projDb = Database::getProjectDB($slug);
+            $row = $projDb->query("SELECT updated_at FROM content WHERE id = 1")->fetch();
+            $this->json(['updated_at' => $row['updated_at']]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            die();
+        }
     }
 }

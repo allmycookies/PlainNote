@@ -1,5 +1,5 @@
 import { expandItems } from './parser.js';
-import { escapeHtml } from './ui.js';
+import { escapeHtml, formatText } from './ui.js';
 
 export function renderCalendar(items, config, dom, calState) {
     if(!document.getElementById('cal-prev')) ensureNavControls(calState, () => renderCalendar(items, config, dom, calState));
@@ -36,7 +36,6 @@ function updateViewButtons(config) {
 function renderWeekView(items, config, dom, calState) {
     const container = dom.calRender;
     const ref = calState.refDate;
-
     const day = ref.getDay();
     const diff = ref.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(ref);
@@ -53,7 +52,6 @@ function renderWeekView(items, config, dom, calState) {
     const totalH = endH - startH;
 
     const visibleItems = expandItems(items, monday, sunday);
-
     const fmt = new Intl.DateTimeFormat(config.locale, { day:'2-digit', month:'2-digit', year: 'numeric' });
     const lbl = document.getElementById('cal-label');
     if(lbl) lbl.textContent = `${fmt.format(monday)} - ${fmt.format(sunday)}`;
@@ -65,7 +63,7 @@ function renderWeekView(items, config, dom, calState) {
 
     let html = `<div class="week-header" style="grid-template-columns: 50px repeat(${visibleDaysIdx.length}, 1fr);">
                     <div class="day-head">Zeit</div>`;
-
+    
     const daysToRender = [];
     for(let i=0; i<7; i++) {
         const d = new Date(monday);
@@ -84,7 +82,6 @@ function renderWeekView(items, config, dom, calState) {
 
     html += `<div class="week-grid" style="grid-template-columns: 50px repeat(${visibleDaysIdx.length}, 1fr);">
                 <div class="time-col" style="height: ${totalH * 60}px;">`;
-
     for(let h=startH; h<endH; h++) {
         html += `<div class="time-label">${h}:00</div>`;
     }
@@ -95,6 +92,16 @@ function renderWeekView(items, config, dom, calState) {
         const currentDayEnd = new Date(d); currentDayEnd.setHours(23,59,59,999);
 
         html += `<div class="day-col" style="height: ${totalH * 60}px;">`;
+
+        // Current Time Line (Red)
+        const now = new Date();
+        if(d.toDateString() === now.toDateString()) {
+            const nowMins = (now.getHours() * 60) + now.getMinutes();
+            const lineTop = nowMins - (startH * 60);
+            if(lineTop >= 0 && lineTop <= (totalH * 60)) {
+                html += `<div style="position:absolute; top:${lineTop}px; left:0; right:0; border-top:2px solid red; z-index:100; pointer-events:none;"></div>`;
+            }
+        }
 
         const dayItemsRaw = visibleItems.filter(item => item.start < currentDayEnd && item.end > currentDayStart);
         const mainEvents = [];
@@ -129,7 +136,6 @@ function renderWeekView(items, config, dom, calState) {
                 ev.colIndex = columns.length - 1;
             }
         });
-
         const numCols = columns.length;
 
         mainEvents.forEach(item => {
@@ -142,13 +148,17 @@ function renderWeekView(items, config, dom, calState) {
 
             const widthPercent = 96 / numCols;
             const leftPercent = (item.colIndex * widthPercent) + 1;
+            
+            const markerClass = item.marker > 0 ? `marker-${item.marker}` : '';
+            // Use title attribute for tooltip description
+            const tooltip = escapeHtml(item.title) + (item.description ? "\n\n" + escapeHtml(item.description) : "");
 
             if (height > 0) {
-                html += `<div class="cal-event type-${item.type} ${item.isVirtual?'recurring':''}" data-id="${item.id}"
-                                style="top:${top}px; height:${height}px; width:${widthPercent}%; left:${leftPercent}%;"
-                                title="${escapeHtml(item.title)}">
-                                ${escapeHtml(item.title)}
-                            </div>`;
+                html += `<div class="cal-event type-${item.type} ${item.isVirtual?'recurring':''} ${markerClass}" data-id="${item.id}"
+                              style="top:${top}px; height:${height}px; width:${widthPercent}%; left:${leftPercent}%;"
+                                title="${tooltip}">
+                                ${formatText(item.title)}
+                             </div>`;
             }
         });
 
@@ -173,11 +183,13 @@ function renderWeekView(items, config, dom, calState) {
             if(top + height > (totalH * 60)) height = (totalH * 60) - top;
 
             const rightPos = (item.stripIndex * 27) + 2;
+            const markerClass = item.marker > 0 ? `marker-${item.marker}` : '';
+            const tooltip = escapeHtml(item.title) + " (Fortsetzung)" + (item.description ? "\n\n" + escapeHtml(item.description) : "");
 
             if (height > 0) {
-                html += `<div class="cal-strip" data-id="${item.id}"
+                html += `<div class="cal-strip ${markerClass}" data-id="${item.id}"
                                 style="top:${top}px; height:${height}px; width:25px; right:${rightPos}px;"
-                                title="${escapeHtml(item.title)} (Fortsetzung)">
+                                title="${tooltip}">
                                 ${escapeHtml(item.title)}
                             </div>`;
             }
@@ -202,7 +214,6 @@ function renderGanttView(items, config, dom) {
 
     const today = new Date();
     today.setHours(0,0,0,0);
-
     const future = new Date(today);
     future.setDate(today.getDate() + 30);
 
@@ -217,7 +228,6 @@ function renderGanttView(items, config, dom) {
 
     let minT = visibleItems[0].start.getTime();
     let maxT = visibleItems[0].end.getTime();
-
     visibleItems.forEach(t => {
         if(t.start.getTime() < minT) minT = t.start.getTime();
         if(t.end.getTime() > maxT) maxT = t.end.getTime();
@@ -242,8 +252,8 @@ function renderGanttView(items, config, dom) {
                     <div class="g-sidebar">
                         <div class="g-header-title">Aufgaben</div>
                         ${visibleItems.map(t =>
-                            `<div class="g-task-row" data-id="${t.id}" style="cursor:pointer">
-                                ${escapeHtml(t.title)}
+                            `<div class="g-task-row" data-id="${t.id}" style="cursor:pointer" title="${escapeHtml(t.description)}">
+                                ${formatText(t.title)}
                             </div>`
                         ).join('')}
                     </div>
@@ -259,19 +269,28 @@ function renderGanttView(items, config, dom) {
     }
 
     html += `</div>
-                <div class="g-body" style="width: ${finalTotalWidth}px">
-                ${visibleItems.map(t => {
+                <div class="g-body" style="width: ${finalTotalWidth}px">`;
+
+                // Current Time Line (Red)
+                const now = new Date();
+                if(now >= startDate && now <= endDate) {
+                    const nowX = (now.getTime() - gridMin) * pxPerMs;
+                    html += `<div style="position:absolute; left:${nowX}px; top:0; bottom:0; border-left:1px solid red; z-index:200; pointer-events:none;"></div>`;
+                }
+
+                html += `${visibleItems.map(t => {
                     const left = (t.start.getTime() - gridMin) * pxPerMs;
                     const width = (t.end.getTime() - t.start.getTime()) * pxPerMs;
+                    const markerClass = t.marker > 0 ? `marker-${t.marker}` : '';
+                    
                     return `<div class="g-body-row">
-                                <div class="g-bar-item" data-id="${t.id}" style="left:${left}px; width:${width}px; cursor:pointer;">
-                                    ${escapeHtml(t.title)}
+                                <div class="g-bar-item ${markerClass}" data-id="${t.id}" style="left:${left}px; width:${width}px; cursor:pointer;" title="${escapeHtml(t.title) + (t.description?'\n'+escapeHtml(t.description):'')}">
+                                    ${formatText(t.title)}
                                 </div>
                             </div>`;
                 }).join('')}
                 </div>
             </div>
         </div>`;
-
     container.innerHTML = html;
 }

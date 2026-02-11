@@ -47,12 +47,7 @@
                 <button id="btn-load-remote" class="btn-update-load">Neue Einträge laden</button>
             </div>
 
-            <div class="editor-wrapper">
-                <div class="editor-backdrop">
-                    <div class="editor-highlights" id="editor-highlights"></div>
-                </div>
-                <textarea id="editor" spellcheck="false" placeholder="Start typing..."></textarea>
-            </div>
+            <textarea id="editor" spellcheck="false" placeholder="Start typing..."></textarea>
         </section>
 
         <section class="projections-pane">

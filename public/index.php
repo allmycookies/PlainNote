@@ -1,11 +1,18 @@
 <?php
 // public/index.php
-// Version 0.8.2 (Refactored)
+// Version 0.8.3 (Update Check Added)
 
-session_start();
+session_start([
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Lax',
+    'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+]);
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+header("X-Frame-Options: SAMEORIGIN");
+header("X-Content-Type-Options: nosniff");
+header("Referrer-Policy: strict-origin-when-cross-origin");
 
 require_once __DIR__ . '/../src/autoload.php';
-
 use App\Core\Router;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
@@ -14,7 +21,6 @@ use App\Controllers\EditorController;
 use App\Controllers\ApiController;
 
 $router = new Router();
-
 // Routes
 $router->get('/setup', [new AuthController(), 'setup']);
 $router->post('/setup', [new AuthController(), 'setup']);
@@ -30,5 +36,7 @@ $router->post('/admin', [new AdminController(), 'handle']);
 
 $router->get('#^/s/([a-z0-9-]+)$#', [new EditorController(), 'show']);
 $router->post('#^/api/save/([a-z0-9-]+)$#', [new ApiController(), 'save']);
+// NEU: Route zum Prüfen des Zeitstempels
+$router->get('#^/api/check/([a-z0-9-]+)$#', [new ApiController(), 'check']);
 
 $router->dispatch();

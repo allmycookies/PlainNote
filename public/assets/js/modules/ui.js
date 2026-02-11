@@ -8,6 +8,10 @@ export function escapeHtml(text) {
         .replace(/'/g, "&#039;");
 }
 
+export function formatText(text) {
+    return escapeHtml(text); // Old >> replace logic removed
+}
+
 export function renderColumns(items, config, dom) {
     const fmt = new Intl.DateTimeFormat(config.locale, {
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
@@ -20,9 +24,17 @@ export function renderColumns(items, config, dom) {
         } else if(i.start) {
             meta = `<div class="card-meta">📅 ${fmt.format(i.start)}</div>`;
         }
+        
+        let descHtml = '';
+        if(i.description) {
+            descHtml = `<div class="card-desc">${escapeHtml(i.description)}</div>`;
+        }
+        
+        const markerClass = i.marker > 0 ? `marker-${i.marker}` : '';
 
-        return `<div class="card prio-${i.prio} type-${i.type}" data-id="${i.id}" style="cursor:pointer">
-                    <div class="card-title">${escapeHtml(i.title)}</div>
+        return `<div class="card prio-${i.prio} type-${i.type} ${markerClass}" data-id="${i.id}" style="cursor:pointer" title="${escapeHtml(i.description)}">
+                    <div class="card-title">${formatText(i.title)}</div>
+                    ${descHtml}
                     ${meta}
                 </div>`;
     };

@@ -44,20 +44,20 @@
             <form method='post' action='<?=$basePath?>/admin' style='margin:0'>
                     <input type='hidden' name='action' value='export_project'>
                     <input type='hidden' name='slug' value='<?=$s?>'>
-                    <button class='action-btn' title='Export'>⬇</button>
+                    <button class='action-btn' title='Export'>Download ⬇</button>
                   </form>
-                  <form method='post' action='<?=$basePath?>/admin' style='margin:0' onsubmit='return confirm("Projekt <?=$s?> wirklich LÖSCHEN?")'>
+            <form method='post' action='<?=$basePath?>/admin' style='margin:0' onsubmit='return confirm("Projekt <?=$s?> wirklich LÖSCHEN?")'>
                     <input type='hidden' name='action' value='delete_project'>
                     <input type='hidden' name='slug' value='<?=$s?>'>
-                    <button class='action-btn danger' title='Löschen'>&times;</button>
-                  </form>
+                    <button class='action-btn danger' title='Löschen'>Löschen &times;</button>
+            </form>
         <?php endif; ?>
         </div></div>
     <?php endforeach; ?>
     </div>
 
     <?php if ($user['is_admin']): ?>
-        <details class="admin-section">
+        <details class="admin-section" open>
             <summary>Benutzerverwaltung</summary>
             <div class="admin-content">
                 <form action="<?=$basePath?>/admin" method="post" class="inline-form" style="margin-bottom:20px; background:#222; padding:15px; border-radius:5px;">
@@ -65,6 +65,10 @@
                     <span style="font-weight:bold; color:#fff; margin-right:10px;">Neuer User:</span>
                     <input name="username" placeholder="Username" class="gen-input" required style="width:150px">
                     <input name="password" placeholder="Passwort" class="gen-input" required style="width:150px">
+                    <select name="is_admin" class="gen-input" style="width:100px">
+                        <option value="0">User</option>
+                        <option value="1">Admin</option>
+                    </select>
                     <button class="btn-primary">Anlegen</button>
                 </form>
 
@@ -78,27 +82,48 @@
                             <td><?=($u['is_admin']?'Admin':'User')?></td>
                             <td>
                             <?php if(!$u['is_admin']):
+                                // Vorhandene Berechtigungen laden
                                 $perms = \App\Models\Permission::getPermissionsForUser($u['id']);
+                                $existingProjectIds = array_column($perms, 'id');
+                                
+                                // Bestehende Badges anzeigen
                                 foreach($perms as $r): ?>
                                 <span class='badge'><?=htmlspecialchars($r['slug'])?>
                                     <form method='post' action='<?=$basePath?>/admin' style='display:inline'>
                                         <input type='hidden' name='action' value='revoke_perm'>
                                         <input type='hidden' name='user_id' value='<?=$u['id']?>'>
                                         <input type='hidden' name='project_id' value='<?=$r['id']?>'>
-                                        <button style='background:none;border:none;color:#f88;cursor:pointer;padding:0'>&times;</button>
+                                        <button style='background:none;border:none;color:#f88;cursor:pointer;padding:0;margin-left:3px;'>&times;</button>
                                     </form>
-                                </span>
-                                <?php endforeach; ?>
+                                 </span>
+                                <?php endforeach; 
+                                
+                                // Verfügbare Projekte berechnen (Alle - Bereits zugewiesene)
+                                $availableProjects = array_filter($allProjects, function($p) use ($existingProjectIds) {
+                                    return !in_array($p['id'], $existingProjectIds);
+                                });
+                                
+                                // Dropdown nur anzeigen, wenn noch Projekte übrig sind
+                                if(!empty($availableProjects)):
+                                ?>
                                 <form method='post' action='<?=$basePath?>/admin' style='display:inline-block; margin-left:5px;'>
-                                <input type='hidden' name='action' value='assign_perm'>
-                                <input type='hidden' name='user_id' value='<?=$u['id']?>'>
-                                <select name='project_id' style='padding:2px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px'>
-                                    <option value=''>+ Add</option>
-                                    <?php foreach($allProjects as $ap) echo "<option value='{$ap['id']}'>".htmlspecialchars($ap['slug'])."</option>"; ?>
-                                </select><button style='display:none'></button></form>
-                            <?php else: echo "Vollzugriff"; endif; ?>
+                                    <input type='hidden' name='action' value='assign_perm'>
+                                    <input type='hidden' name='user_id' value='<?=$u['id']?>'>
+                                    <select name='project_id' onchange="this.form.submit()" style='padding:4px;background:#222;color:#ccc;border:1px solid #444;border-radius:3px;cursor:pointer;font-size:0.8rem;max-width:120px;'>
+                                        <option value='' selected disabled>+ Projekt...</option>
+                                        <?php foreach($availableProjects as $ap): ?>
+                                            <option value='<?=$ap['id']?>'><?=htmlspecialchars($ap['slug'])?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </form>
+                                <?php endif; ?>
+
+                            <?php else: echo "<span style='color:#666'>Vollzugriff (Admin)</span>"; endif; ?>
                             </td>
                             <td>
+                                <button class="btn-secondary" style="font-size:0.7rem; padding:2px 6px" 
+                                    onclick='openEditUser(<?=$u['id']?>, <?=json_encode($u['username'])?>, <?=$u['is_admin']?>)'>Edit</button>
+
                                 <form method='post' action='<?=$basePath?>/admin' style='display:inline' onsubmit='return confirm("PW Reset?")'>
                                     <input type='hidden' name='action' value='reset_pw'>
                                     <input type='hidden' name='user_id' value='<?=$u['id']?>'>
@@ -133,4 +158,46 @@
             </div>
         </details>
     <?php endif; ?>
-    </div></body></html>
+    </div>
+
+    <div id="modal-edit-user" class="modal-overlay">
+        <div class="modal" style="width:400px">
+            <div class="modal-header">
+                <span>User bearbeiten</span>
+                <button class="modal-close" onclick="document.getElementById('modal-edit-user').classList.remove('open')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form action="<?=$basePath?>/admin" method="post">
+                    <input type="hidden" name="action" value="update_user">
+                    <input type="hidden" name="user_id" id="edit-user-id">
+                    
+                    <div class="gen-section">
+                        <label class="gen-label">Username</label>
+                        <input name="username" id="edit-user-name" class="gen-input" required>
+                    </div>
+                    
+                    <div class="gen-section">
+                        <label class="gen-label">Rolle</label>
+                        <select name="is_admin" id="edit-user-role" class="gen-input">
+                            <option value="0">User</option>
+                            <option value="1">Admin</option>
+                        </select>
+                    </div>
+
+                    <div style="text-align:right; margin-top:20px">
+                        <button class="btn-primary">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function openEditUser(id, name, isAdmin) {
+        document.getElementById('edit-user-id').value = id;
+        document.getElementById('edit-user-name').value = name;
+        document.getElementById('edit-user-role').value = isAdmin;
+        document.getElementById('modal-edit-user').classList.add('open');
+    }
+    </script>
+    </body></html>

@@ -17,6 +17,13 @@ class User {
         return $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isAdmin]);
     }
 
+    // NEU: Update Funktion für Name und Rolle
+    public static function update($id, $username, $isAdmin) {
+        $pdo = Database::getMasterDB();
+        $stmt = $pdo->prepare("UPDATE users SET username = ?, is_admin = ? WHERE id = ?");
+        return $stmt->execute([$username, $isAdmin, $id]);
+    }
+
     public static function getAll() {
         return Database::getMasterDB()->query("SELECT * FROM users ORDER BY username")->fetchAll();
     }

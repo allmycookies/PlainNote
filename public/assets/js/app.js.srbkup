@@ -1,5 +1,3 @@
-/* public/assets/js/app.js */
-
 import { save } from './modules/api.js';
 import { parseContent } from './modules/parser.js';
 import { renderColumns } from './modules/ui.js';
@@ -13,7 +11,6 @@ export class App {
         this.content = data.content || '';
         this.updatedAt = data.updated_at || null;
         this.allSlugs = data.allSlugs || [];
-        
         this.defaultConfig = {
             locale: 'de-DE', 
             view: 'week', 
@@ -28,24 +25,23 @@ export class App {
             prioColors: ['#ff4d4d', '#ff9e4d', '#ffd24d', '#4dff88', '#4d9eff'],
             markerColors: ['#e06c75', '#d19a66', '#e5c07b', '#98c379', '#56b6c2', '#61afef', '#c678dd', '#be5046', '#abb2bf']
         };
-
         this.config = { ...this.defaultConfig, ...(data.config || {}) };
 
         this.dom = {
             editor: document.getElementById('editor'),
-            // NEU: Referenz auf Highlight Container
-            highlights: document.getElementById('editor-highlights'),
             status: document.getElementById('save-status'),
             tasks: document.getElementById('render-tasks'),
             notes: document.getElementById('render-notes'),
             dates: document.getElementById('render-dates'),
             calRender: document.getElementById('calendar-render'),
             genPreview: document.getElementById('gen-preview'),
+            // NEU: Banner Container
             banner: document.getElementById('update-banner')
         };
-
         this.calState = { refDate: new Date() };
         this.saveTimeout = null;
+        
+        // NEU: States für Update-Check
         this.lastInputTime = 0; 
         this.checkInterval = null;
 
@@ -54,6 +50,7 @@ export class App {
             this.applyGlobalSettings();
             this.initEvents();
             this.runPipeline();
+            // NEU: Heartbeat starten
             this.initHeartbeat();
         }
     }
@@ -68,14 +65,14 @@ export class App {
             root.style.setProperty('--border', '#e0e0e0');
             root.style.setProperty('--text-main', '#333333');
             root.style.setProperty('--text-muted', '#666666');
-            // REMOVED: editor.style.color assignment to keep textarea transparent
+            if(this.dom.editor) this.dom.editor.style.color = '#333';
         } else {
             root.style.setProperty('--bg-dark', '#1e1e1e');
             root.style.setProperty('--bg-panel', '#252526');
             root.style.setProperty('--border', '#3e3e42');
             root.style.setProperty('--text-main', '#d4d4d4');
             root.style.setProperty('--text-muted', '#858585');
-            // REMOVED: editor.style.color assignment
+            if(this.dom.editor) this.dom.editor.style.color = '#ce9178';
         }
 
         if(c.prioColors && c.prioColors.length === 5) {
@@ -84,6 +81,7 @@ export class App {
             });
         }
         
+        // Apply Marker Colors
         if(c.markerColors && c.markerColors.length === 9) {
             c.markerColors.forEach((col, i) => {
                 root.style.setProperty(`--marker-${i+1}`, col);
@@ -99,11 +97,13 @@ export class App {
         bindEditorEvents(this.dom, {
             onInput: (newContent) => {
                 this.content = newContent;
+                // NEU: Zeitstempel der letzten Eingabe setzen
                 this.lastInputTime = Date.now();
                 this.dom.status.textContent = '...';
                 
-                // Banner ausblenden bei Input
-                this.dom.banner.classList.remove('show');
+                // Banner ausblenden, falls User weitertippt, 
+                // da er ja gerade eine "noch neuere" Version lokal erzeugt
+                // (Wird beim nächsten Save dann ggf. zum Konflikt führen, aber das ist gewollt)
                 
                 this.runPipeline();
                 clearTimeout(this.saveTimeout);
@@ -155,8 +155,11 @@ export class App {
             if(e.target.id === 'btn-e-date') document.getElementById('pick-e-date').showPicker();
             if(e.target.id === 'btn-e-time') document.getElementById('pick-e-time').showPicker();
             
+            // NEU: Button im Banner
             if(e.target.id === 'btn-load-remote') {
-                 window.location.reload();
+                 // Seite neu laden ist am sichersten, um alles konsistent zu holen
+                 // Aber um SPA-Feeling zu behalten:
+                 window.location.reload(); 
             }
         });
 
@@ -184,18 +187,16 @@ export class App {
         });
         document.querySelectorAll('#modal-recur input, #modal-recur select').forEach(el => 
             el.addEventListener('input', () => this.updateGenPreview()));
-        
         document.getElementById('btn-insert-recur')?.addEventListener('click', () => {
             const tag = this.dom.genPreview.textContent;
             toggle('modal-recur', false);
-            insertAtCursor(this.dom, ' ' + tag, (val) => {
+            insertAtCursor(this.dom.editor, ' ' + tag, (val) => {
                 this.content = val;
-                this.lastInputTime = Date.now();
+                this.lastInputTime = Date.now(); // Auch hier Check pausieren
                 this.runPipeline();
                 this.triggerSave();
             });
         });
-
         document.getElementById('btn-save-settings')?.addEventListener('click', () => {
             this.config.theme = document.getElementById('set-theme').value;
             this.config.calHeight = parseInt(document.getElementById('set-cal-height').value);
@@ -211,7 +212,7 @@ export class App {
             const colors = [];
             for(let i=1; i<=5; i++) colors.push(document.getElementById(`set-p${i}`).value);
             this.config.prioColors = colors;
-
+            
             const mColors = [];
             for(let i=1; i<=9; i++) mColors.push(document.getElementById(`set-m${i}`).value);
             this.config.markerColors = mColors;
@@ -230,13 +231,11 @@ export class App {
             this.runPipeline();
             this.triggerSave();
         });
-
         document.getElementById('btn-conflict-overwrite')?.addEventListener('click', () => {
              this.updatedAt = document.getElementById('conflict-server-ts').dataset.ts;
              document.getElementById('modal-conflict').classList.remove('open');
              this.triggerSave();
         });
-
         document.getElementById('btn-conflict-load')?.addEventListener('click', () => {
              this.content = document.getElementById('conflict-server-content').value;
              this.updatedAt = document.getElementById('conflict-server-ts').dataset.ts;
@@ -244,9 +243,10 @@ export class App {
              this.runPipeline();
              document.getElementById('modal-conflict').classList.remove('open');
              this.dom.status.textContent = 'Server-Version geladen';
+             
+             // Banner auch verstecken, falls offen
              this.dom.banner.classList.remove('show');
         });
-
         document.getElementById('set-cal-height')?.addEventListener('input', (e) => {
             document.getElementById('val-cal-height').textContent = e.target.value + '%';
         });
@@ -261,11 +261,9 @@ export class App {
         document.getElementById('set-gantt-min').value = c.ganttMinWidth || 60;
         document.getElementById('set-cal-start').value = c.calStartHour ?? 0;
         document.getElementById('set-cal-end').value = c.calEndHour ?? 24;
-
         document.querySelectorAll('.set-day-chk').forEach(el => {
             el.checked = (c.visibleDays || []).includes(parseInt(el.value));
         });
-
         if(c.prioColors) {
             c.prioColors.forEach((col, i) => {
                 const el = document.getElementById(`set-p${i+1}`);
@@ -312,26 +310,34 @@ export class App {
         renderCalendar(items, this.config, this.dom, this.calState);
     }
 
+    // NEU: Heartbeat Funktion
     initHeartbeat() {
         if(this.checkInterval) clearInterval(this.checkInterval);
+        
         this.checkInterval = setInterval(async () => {
+            // 1. Prüfen ob gerade getippt wird (oder vor < 2000ms getippt wurde)
             const timeSinceInput = Date.now() - this.lastInputTime;
-            if (timeSinceInput < 2000) return;
+            if (timeSinceInput < 2000) {
+                return; // Check überspringen
+            }
 
             try {
                 const res = await fetch(`/api/check/${this.slug}`);
                 if(res.ok) {
                     const json = await res.json();
+                    // Wenn Server TS neuer ist als unser lokaler 'updatedAt'
+                    // Hinweis: updatedAt ist ein String aus DB 'YYYY-MM-DD HH:MM:SS'
+                    // String Vergleich funktioniert bei ISO/SQL Format lexikalisch korrekt
                     if (json.updated_at > this.updatedAt) {
-                         this.dom.banner.classList.add('show');
+                        this.dom.banner.classList.add('show');
                     } else {
                          this.dom.banner.classList.remove('show');
                     }
                 }
             } catch(e) {
-               console.warn("Heartbeat failed", e);
+                console.warn("Heartbeat failed", e);
             }
-        }, 2000);
+        }, 2000); // Alle 2 Sekunden
     }
 
     async triggerSave() {
@@ -342,12 +348,15 @@ export class App {
             tsEl.textContent = new Date(serverData.server_updated_at).toLocaleString();
             tsEl.dataset.ts = serverData.server_updated_at;
             document.getElementById('modal-conflict').classList.add('open');
+            
+            // Wenn Konfliktmodal offen ist, brauchen wir das kleine Banner nicht
             this.dom.banner.classList.remove('show');
         });
 
         if(newTs) {
             this.updatedAt = newTs;
             this.dom.status.textContent = 'Gespeichert';
+            // Nach erfolgreichem Speichern sind wir wieder aktuell
             this.dom.banner.classList.remove('show');
         }
     }
