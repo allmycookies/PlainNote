@@ -63,5 +63,7 @@ Rufe die URL im Browser auf. Du wirst automatisch zum Setup weitergeleitet (`/se
 
 
 ## 🤝 Contributing
-
 Pull Requests sind willkommen! Da das Projekt bewusst auf Frameworks verzichtet, achte bitte auf "Dependency-Free" Code.
+
+## Lizenz
+MIT
