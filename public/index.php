@@ -1,6 +1,6 @@
 <?php
 // public/index.php
-// Version 0.8.3 (Update Check Added)
+// Version 0.9.7 (Modularized Windows)
 
 session_start([
     'cookie_httponly' => true,
@@ -19,6 +19,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\AdminController;
 use App\Controllers\EditorController;
 use App\Controllers\ApiController;
+use App\Controllers\ViewController; // NEU
 
 $router = new Router();
 // Routes
@@ -36,7 +37,11 @@ $router->post('/admin', [new AdminController(), 'handle']);
 
 $router->get('#^/s/([a-z0-9-]+)$#', [new EditorController(), 'show']);
 $router->post('#^/api/save/([a-z0-9-]+)$#', [new ApiController(), 'save']);
-// NEU: Route zum Prüfen des Zeitstempels
 $router->get('#^/api/check/([a-z0-9-]+)$#', [new ApiController(), 'check']);
+
+// NEU: Modul-Views (Popups)
+$router->get('#^/view/kanban/([a-z0-9-]+)$#', [new ViewController(), 'kanban']);
+$router->get('#^/view/calendar/([a-z0-9-]+)$#', [new ViewController(), 'calendar']);
+$router->get('#^/view/gantt/([a-z0-9-]+)$#', [new ViewController(), 'gantt']);
 
 $router->dispatch();

@@ -1,7 +1,23 @@
-<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>PlainNote / <?= htmlspecialchars($slug) ?></title>
-<link rel="stylesheet" href="<?=$basePath?>/assets/css/style.css">
-<script>window.SERVER_DATA = <?= json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;</script>
-<script type="module" src="<?=$basePath?>/assets/js/app.js"></script>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport ist entscheidend für Mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PlainNote / <?= htmlspecialchars($slug) ?></title>
+    
+    <link rel="stylesheet" href="<?=$basePath?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?=$basePath?>/assets/css/print.css">
+    
+    <!-- NEU: Mobile CSS, wird nur geladen/aktiviert wenn Bildschirm < 768px -->
+    <link rel="stylesheet" href="<?=$basePath?>/assets/css/mobile.css" media="(max-width: 768px)">
+    
+    <script>
+        // Server Daten und Basis-Pfad für JS verfügbar machen
+        window.SERVER_DATA = <?= json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+        window.BASE_PATH = "<?=$basePath?>"; 
+    </script>
+    <script type="module" src="<?=$basePath?>/assets/js/app.js"></script>
 </head>
 <body>
     <header>
@@ -12,7 +28,20 @@
                 <option value="<?=$basePath?>/s/<?=$s?>" <?= $s === $slug ? 'selected' : '' ?>><?=htmlspecialchars($s)?></option>
             <?php endforeach; ?>
         </select>
+        
         <div style="margin-left:auto; display:flex; gap:10px; align-items:center">
+            
+            <div style="display:flex; gap:2px; border-right:1px solid #444; padding-right:10px;">
+                <button class="tool-btn icon-btn" id="btn-detach-kanban" title="Kanban abdocken">⧉ K</button>
+                <button class="tool-btn icon-btn" id="btn-detach-cal" title="Kalender abdocken">⧉ C</button>
+                <button class="tool-btn icon-btn" id="btn-detach-gantt" title="Gantt abdocken">⧉ G</button>
+            </div>
+
+            <div style="display:flex; gap:2px; border-right:1px solid #444; padding-right:10px;">
+                <button class="tool-btn icon-btn" id="btn-print-text" title="Text drucken">🖨 T</button>
+                <!-- Print Buttons für Module entfernt, da nicht unterstützt -->
+            </div>
+
             <div id="save-status" style="font-size:0.8rem; color:#888">Bereit</div>
             <a href="<?=$basePath?>/" class="btn-secondary" style="padding:2px 8px; font-size:0.8rem; text-decoration:none">Exit</a>
         </div>
@@ -20,6 +49,7 @@
 
     <main>
         <section class="editor-pane">
+            <div class="resizer-x" id="resizer-editor"></div>
             <div class="editor-toolbar">
                 <div class="tool-group">
                     <label>Start</label>
@@ -55,22 +85,11 @@
             </div>
         </section>
 
-        <section class="projections-pane">
-            <div class="lane">
-                <div class="lane-head"><h3>Aufgaben</h3><button data-sort="tasks" class="tool-btn">⇅</button></div>
-                <div class="lane-content" id="render-tasks"></div>
-            </div>
-            <div class="lane">
-                <div class="lane-head"><h3>Notizen</h3><button data-sort="notes" class="tool-btn">⇅</button></div>
-                <div class="lane-content" id="render-notes"></div>
-            </div>
-            <div class="lane">
-                <div class="lane-head"><h3>Termine</h3><button data-sort="dates" class="tool-btn">⇅</button></div>
-                <div class="lane-content" id="render-dates"></div>
-            </div>
-        </section>
+        <section class="projections-pane" id="projections-pane"></section>
     </main>
-<footer id="calendar-pane">
+    
+    <footer id="calendar-pane">
+        <div class="resizer-y" id="resizer-calendar"></div>
         <div class="cal-controls">
             <span>Ansicht:</span>
             <button class="view-btn" data-view="gantt">Gantt</button>
@@ -78,6 +97,62 @@
         </div>
         <div id="calendar-render"></div>
     </footer>
+
+    <!-- Modals (Kurzform für Übersichtlichkeit, Inhalt bleibt gleich) -->
+    <div id="modal-planning" class="modal-overlay">
+        <div class="modal" style="width: 800px; height: 90vh; max-width: 98%;">
+            <div class="modal-header">
+                <span id="plan-date-title">Planung</span>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:0; position:relative; overflow:hidden;">
+                 <div class="plan-container" id="plan-render-area"></div>
+            </div>
+            <div class="modal-footer">
+                <span style="font-size:0.8rem; color:#888; margin-right:auto;">Ziehen: Erstellen/Verschieben. Unten: Größe.</span>
+                <button class="modal-close btn-secondary">Abbrechen</button>
+                <button id="btn-plan-save" class="btn-primary">Übernehmen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-quick-insert" class="modal-overlay">
+        <div class="modal" style="width: 400px;">
+            <div class="modal-header">
+                <span>Zeitstempel einfügen</span>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="gen-section">
+                    <label class="gen-label">Typ</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="quick-type" value="s" id="quick-type-start" checked> Start</label>
+                        <label><input type="radio" name="quick-type" value="e" id="quick-type-end"> Ende</label>
+                    </div>
+                </div>
+                <div class="gen-section">
+                    <label class="gen-label">Datum</label>
+                    <div id="quick-calendar-wrapper">
+                        <div class="quick-cal-header">
+                            <button class="quick-cal-btn" id="qc-prev">&lt;</button>
+                            <span class="quick-cal-title" id="quick-calendar-title"></span>
+                            <button class="quick-cal-btn" id="qc-next">&gt;</button>
+                        </div>
+                        <div class="quick-cal-grid" id="quick-calendar-grid"></div>
+                    </div>
+                    <input type="hidden" id="quick-date-hidden">
+                </div>
+                <div class="gen-section">
+                    <label class="gen-label">Uhrzeit</label>
+                    <input type="time" id="quick-time" class="gen-input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-quick-cancel" class="btn-secondary">Abbrechen</button>
+                <button id="btn-quick-ok" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
 
     <div id="modal-recur" class="modal-overlay">
         <div class="modal">
@@ -136,12 +211,35 @@
     </div>
 
     <div id="modal-settings" class="modal-overlay">
-        <div class="modal">
+        <div class="modal" style="width: 550px;">
             <div class="modal-header">
                 <span>Einstellungen</span>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="gen-section">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <label class="gen-label" style="margin:0">Kanban Spalten</label>
+                        <button id="btn-add-col" class="tool-btn" style="background:none; border:none; color:var(--accent); font-weight:bold">+ Spalte</button>
+                    </div>
+                    <div id="settings-cols-container"></div>
+                </div>
+
+                <div class="gen-section">
+                    <label class="gen-label">Layout</label>
+                    <div class="gen-row">
+                        <span>Editor Breite</span>
+                        <div style="flex:1; display:flex; align-items:center; gap:10px; margin-left:10px;">
+                            <input type="range" id="set-editor-width" min="20" max="80" step="5" style="flex:1">
+                            <span id="val-editor-width" style="width:40px; text-align:right">60%</span>
+                        </div>
+                    </div>
+                    <div class="gen-row">
+                        <span>Min. Spaltenbreite (px)</span>
+                        <input type="number" id="set-col-min-width" class="gen-input gen-input-small" min="150" max="500">
+                    </div>
+                </div>
+
                 <div class="gen-section">
                     <label class="gen-label">Kalender Ansicht</label>
                     <div class="gen-row">
@@ -185,7 +283,7 @@
                     </div>
                     <label class="gen-label" style="margin-top:10px">Prioritäten (P1 - P5)</label>
                     <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:5px">
-                        <?php for($i=1; $i<=5; $i++): ?>
+                      <?php for($i=1; $i<=5; $i++): ?>
                             <div class="color-field">
                                 <input type="color" id="set-p<?= $i ?>" style="width:100%; height:30px; border:none; background:none; cursor:pointer">
                             </div>
@@ -225,168 +323,63 @@
         </div>
     </div>
 
-<div id="modal-help" class="modal-overlay">
-    <div class="modal" style="width: 700px; max-width: 95%; max-height: 90vh;">
-        <div class="modal-header">
-            <span>Syntax Referenz & Anleitung</span>
-            <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <p style="color: #888; margin-bottom: 20px; font-size: 0.9rem;">
-                PlainNote wird primär über Text-Tags gesteuert. Jede Zeile, die mit <code>[-]</code> oder <code>[]</code> beginnt, wird als Eintrag erkannt.
-            </p>
+    <div id="modal-help" class="modal-overlay">
+        <div class="modal" style="width: 700px; max-width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <span>Syntax Referenz & Anleitung</span>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: #888; margin-bottom: 20px; font-size: 0.9rem;">
+                    PlainNote wird primär über Text-Tags gesteuert. Jede Zeile, die mit <code>[-]</code> oder <code>[]</code> beginnt, wird als Eintrag erkannt.
+                </p>
 
-            <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 0;">1. Grundlagen & Typen</h3>
-            <table class="help-table">
-                <tr>
-                    <th style="width: 140px;">Tag / Syntax</th>
-                    <th>Beschreibung & Beispiel</th>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[-]</span> oder <span class="tag-mono">[]</span></td>
-                    <td>
-                        <strong>Neuer Eintrag (Pflicht)</strong><br>
-                        Markiert den Beginn einer Aufgabe. Ohne dies wird die Zeile ignoriert.<br>
-                        <div class="tag-ex">[-] Milch kaufen</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono"><<</span></td>
-                    <td>
-                        <strong>Beschreibung</strong><br>
-                        Fügt Text zur <em>vorherigen</em> Aufgabe hinzu.<br>
-                        <div class="tag-ex">[-] Design Meeting<br>&lt;&lt; Laptop mitbringen!</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[a]</span></td>
-                    <td>
-                        <strong>Aufgabe (Standard)</strong><br>
-                        Erscheint in der Spalte "Aufgaben" und im Gantt-Chart.<br>
-                        <div class="tag-ex">[-] Projektbericht schreiben [a]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[n]</span></td>
-                    <td>
-                        <strong>Notiz</strong><br>
-                        Erscheint in der Spalte "Notizen". Hat keine Checkbox.<br>
-                        <div class="tag-ex">[-] Idee für Logo [n]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[t]</span></td>
-                    <td>
-                        <strong>Termin</strong><br>
-                        Erscheint in der Spalte "Termine". Wird im Kalender priorisiert.<br>
-                        <div class="tag-ex">[-] Zahnarzt [t] [s14:00]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[p1]</span> - <span class="tag-mono">[p5]</span></td>
-                    <td>
-                        <strong>Priorität</strong><br>
-                        Färbt den Rand der Karte (Links). [p1] (Rot/Hoch) bis [p5] (Blau/Niedrig).
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[m1]</span> - <span class="tag-mono">[m9]</span></td>
-                    <td>
-                        <strong>Marker (Farbe)</strong><br>
-                        Färbt den Hintergrund (Kalender) oder rechten Rand (Liste). Farben in Einstellungen konfigurierbar.<br>
-                        <div class="tag-ex">[-] Meeting [m2]</div>
-                    </td>
-                </tr>
-            </table>
+                <!-- Doku für Headings (jetzt m-Tags) -->
+                <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 0;">0. Formatierung (Neu)</h3>
+                <table class="help-table">
+                     <tr>
+                        <th style="width: 140px;">Syntax</th>
+                        <th>Beschreibung</th>
+                    </tr>
+                    <tr>
+                        <td><span class="tag-mono">//m1// Titel</span></td>
+                        <td>Hebt den nachfolgenden Text farbig hervor (Marker 1).</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag-mono">//m2// Titel</span></td>
+                        <td>Hebt den nachfolgenden Text farbig hervor (Marker 2).</td>
+                    </tr>
+                    <tr>
+                         <td colspan="2" style="font-style:italic; color:#666">... bis //m9//</td>
+                    </tr>
+                </table>
 
-            <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 20px;">2. Zeit & Datum</h3>
-            <table class="help-table">
-                <tr>
-                    <th style="width: 140px;">Tag / Syntax</th>
-                    <th>Beschreibung & Beispiel</th>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[sHH:MM]</span></td>
-                    <td>
-                        <strong>Startzeit</strong><br>
-                        Setzt die Uhrzeit für heute (oder das gewählte Datum).<br>
-                        <div class="tag-ex">[-] Mittagessen [s12:30]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[eHH:MM]</span></td>
-                    <td>
-                        <strong>Endzeit</strong><br>
-                        Definiert, wann der Termin endet.<br>
-                        <div class="tag-ex">[-] Workshop [s10:00] [e14:00]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[sYYYY-MM-DD]</span></td>
-                    <td>
-                        <strong>Startdatum</strong><br>
-                        Legt das Datum fest (Jahr-Monat-Tag). Auch deutsches Format (DD.MM.) wird oft erkannt.<br>
-                        <div class="tag-ex">[-] Urlaub [s2026-08-01]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">Automatisch</span></td>
-                    <td>
-                        <strong>Dauer-Logik</strong><br>
-                        Ist nur eine Startzeit angegeben, wird die Standard-Dauer (z.B. 20min) addiert.<br>
-                        Ist nur ein Datum ohne Zeit da, gilt es als Ganztages-Ereignis.
-                    </td>
-                </tr>
-            </table>
-
-            <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 20px;">3. Wiederholungen (Recurring)</h3>
-            <table class="help-table">
-                <tr>
-                    <th style="width: 140px;">Tag / Syntax</th>
-                    <th>Beschreibung & Beispiel</th>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[w mo,fr]</span></td>
-                    <td>
-                        <strong>Wochentage</strong><br>
-                        Wiederholt jeden Montag und Freitag.<br>
-                        <em>Kürzel: mo, di, mi, do, fr, sa, so</em><br>
-                        <div class="tag-ex">[-] Daily Scrum [s10:00] [w mo,di,mi,do,fr]</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[w +2w]</span></td>
-                    <td>
-                        <strong>Intervalle</strong><br>
-                        Wiederholt relativ zum Startdatum.<br>
-                        <em>+Xt (Tage), +Xw (Wochen), +Xm (Monate)</em><br>
-                        <div class="tag-ex">[-] Müll rausbringen [w +2w] (Alle 2 Wochen)</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[w 24.12]</span></td>
-                    <td>
-                        <strong>Fixer Tag</strong><br>
-                        Wiederholt jährlich am 24.12. (oder monatlich bei [w 01.]).<br>
-                        <div class="tag-ex">[-] Miete zahlen [w 01.] (Am 1. jeden Monats)</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td><span class="tag-mono">[bis YYYY-MM-DD]</span></td>
-                    <td>
-                        <strong>Enddatum der Serie</strong><br>
-                        Begrenzt die Wiederholung bis zu diesem Tag.<br>
-                        <div class="tag-ex">[-] Projekt-Meeting [w mo] [bis 2026-12-31]</div>
-                    </td>
-                </tr>
-            </table>
-
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #888; border-top: 1px solid #444; padding-top: 10px;">
-                <strong>Tipp:</strong> Klicke auf ein Element im Kalender oder in den Spalten, um zur entsprechenden Textzeile im Editor zu springen.
+                <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 20px;">1. Grundlagen & Typen</h3>
+                <table class="help-table">
+                    <tr>
+                        <th style="width: 140px;">Tag / Syntax</th>
+                        <th>Beschreibung & Beispiel</th>
+                    </tr>
+                    <tr>
+                        <td><span class="tag-mono">[-]</span> oder <span class="tag-mono">[]</span></td>
+                        <td>
+                            <strong>Neuer Eintrag (Pflicht)</strong><br>
+                            Markiert den Beginn einer Aufgabe.<br>
+                            <div class="tag-ex">[-] Milch kaufen</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag-mono"><<</span></td>
+                        <td>
+                            <strong>Beschreibung</strong><br>
+                            Fügt Text zur <em>vorherigen</em> Aufgabe hinzu.<br>
+                            <div class="tag-ex">[-] Design Meeting<br>&lt;&lt; Laptop mitbringen!</div>
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
     </div>
-</div>
 
     <div id="modal-conflict" class="modal-overlay">
         <div class="modal" style="width:600px">
@@ -404,6 +397,5 @@
             </div>
         </div>
     </div>
-
 </body>
 </html>

@@ -2,7 +2,7 @@
     <link rel="stylesheet" href="<?=$basePath?>/assets/css/style.css"></head>
     <body>
     <header>
-        <a href="<?=$basePath?>/" class="brand">PlainNote</a>
+        <a href="<?=$basePath?>/" class="brand">PlainNote</a><h6>Version 0.9.7</h6>
         <div class="user-menu">
             <span><?=htmlspecialchars($user['username'])?> <?=($user['is_admin']?'<span class="badge badge-admin">Admin</span>':'')?></span>
             <a href="<?=$basePath?>/logout" class="logout-link">Logout</a>
@@ -12,7 +12,7 @@
     <div class="dash-container">
         <div class="dash-header-hero">
             <div>
-                <h1>Willkommen, <?=htmlspecialchars($user['username'])?></h1>
+                <h1>Willkommen, User <?=htmlspecialchars($user['username'])?></h1>
                 <p>Übersicht deiner Projekte</p>
             </div>
             <?php if($user['is_admin']): ?>

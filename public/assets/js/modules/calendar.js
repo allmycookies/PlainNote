@@ -1,3 +1,5 @@
+/* public/assets/js/modules/calendar.js */
+
 import { expandItems } from './parser.js';
 import { escapeHtml, formatText } from './ui.js';
 
@@ -5,7 +7,19 @@ export function renderCalendar(items, config, dom, calState) {
     if(!document.getElementById('cal-prev')) ensureNavControls(calState, () => renderCalendar(items, config, dom, calState));
     updateViewButtons(config);
 
-    const validItems = items.filter(i => i.start && i.end);
+    // KANBAN FILTER: Check if column is allowed in calendar
+    const validItems = items.filter(item => {
+        // 1. Check if configured to show
+        if (item.columnConfig && item.columnConfig.showInCalendar === false) return false;
+        
+        // 2. Legacy fallback: [n] was hidden
+        if (!item.columnConfig && item.type === 'n') return false;
+
+        // 3. Technical checks
+        if (!item.start || isNaN(item.start.getTime())) return false;
+        if (item.raw && !item.raw.match(/\[[se]/i) && !item.recur) return false;
+        return true;
+    });
 
     if(config.view === 'week') {
         renderWeekView(validItems, config, dom, calState);
@@ -93,7 +107,6 @@ function renderWeekView(items, config, dom, calState) {
 
         html += `<div class="day-col" style="height: ${totalH * 60}px;">`;
 
-        // Current Time Line (Red)
         const now = new Date();
         if(d.toDateString() === now.toDateString()) {
             const nowMins = (now.getHours() * 60) + now.getMinutes();
@@ -150,7 +163,6 @@ function renderWeekView(items, config, dom, calState) {
             const leftPercent = (item.colIndex * widthPercent) + 1;
             
             const markerClass = item.marker > 0 ? `marker-${item.marker}` : '';
-            // Use title attribute for tooltip description
             const tooltip = escapeHtml(item.title) + (item.description ? "\n\n" + escapeHtml(item.description) : "");
 
             if (height > 0) {
@@ -218,7 +230,6 @@ function renderGanttView(items, config, dom) {
     future.setDate(today.getDate() + 30);
 
     const visibleItems = expandItems(items, today, future)
-        .filter(i => i.type === 'a')
         .sort((a,b) => a.start - b.start);
 
     if(visibleItems.length === 0) {
@@ -271,7 +282,6 @@ function renderGanttView(items, config, dom) {
     html += `</div>
                 <div class="g-body" style="width: ${finalTotalWidth}px">`;
 
-                // Current Time Line (Red)
                 const now = new Date();
                 if(now >= startDate && now <= endDate) {
                     const nowX = (now.getTime() - gridMin) * pxPerMs;

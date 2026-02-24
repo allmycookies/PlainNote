@@ -1,8 +1,12 @@
+/* public/assets/js/modules/parser.js */
+
 const lineCache = new Map();
 let lastConfigHash = '';
 
 function getConfigHash(config) {
-    return `${config.defDuration}-${config.locale}`;
+    // Hash includes column definitions to invalidate cache on setting change
+    const colStr = JSON.stringify(config.columns || []);
+    return `${config.defDuration}-${config.locale}-${colStr}`;
 }
 
 export function parseContent(content, config) {
@@ -32,27 +36,23 @@ export function parseContent(content, config) {
                     lastItem.description = descText;
                 }
             }
-            // Do not continue parsing this line as a task
             return;
         }
 
-        // 2. Check for Task/Item (starts with [] or [-])
+        // 2. Check for Task/Item start
+        // Must start with [-] or [] OR a valid column token if logic allows.
+        // Convention: Start with [-] or []
         if(!trim.match(/^(\[\]|\[-\])/)) return;
 
-        // Cache Key: trim + todayStr
+        // Cache Key
         const cacheKey = trim + '|' + todayStr;
 
         let itemData;
         if (lineCache.has(cacheKey)) {
-            itemData = lineCache.get(cacheKey);
-            // Must decouple from cache ref because we modify it (e.g. description) later? 
-            // Actually description is added to the instance in 'items', not the cached object.
-            // But wait, parseLineInternal returns a fresh object structure.
-            // Safe to copy.
-            itemData = { ...itemData }; 
+            itemData = { ...lineCache.get(cacheKey) }; 
         } else {
             itemData = parseLineInternal(trim, config, todayStr, defDur);
-            lineCache.set(cacheKey, { ...itemData }); // Cache a copy
+            lineCache.set(cacheKey, { ...itemData }); 
         }
 
         if (itemData) {
@@ -70,22 +70,42 @@ function parseLineInternal(trim, config, todayStr, defDur) {
     const item = {
         raw: trim,
         title: trim,
-        type: 'a',
+        type: null, // Will be set to column ID or token
+        columnConfig: null,
         prio: 0,
-        marker: 0, // 0 = none
+        marker: 0, 
         start: null,
         end: null,
         recur: null,
         recurUntil: null
     };
 
-    if(/\[n\]/i.test(trim)) item.type = 'n';
-    else if(/\[t\]/i.test(trim)) item.type = 't';
+    // Determine Type/Column based on Dynamic Config
+    if (config.columns && config.columns.length > 0) {
+        for (const col of config.columns) {
+            // Escape special regex chars in token
+            const esc = col.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(`\\[${esc}\\]`, 'i');
+            if (re.test(trim)) {
+                item.type = col.token;
+                item.columnConfig = col;
+                break;
+            }
+        }
+    }
+    
+    // Fallback: If no column matched, assign to first column (Inbox behavior)
+    if (!item.type && config.columns && config.columns.length > 0) {
+        item.type = config.columns[0].token;
+        item.columnConfig = config.columns[0];
+    }
+    
+    // Fallback (Legacy) if no columns defined (should be handled by defaultConfig but safety first)
+    if (!item.type) item.type = 'a';
 
     const pMatch = trim.match(/\[p([1-5])\]/i);
     if(pMatch) item.prio = parseInt(pMatch[1]);
     
-    // Parse Marker [m1] - [m9]
     const mMatch = trim.match(/\[m([1-9])\]/i);
     if(mMatch) item.marker = parseInt(mMatch[1]);
 
@@ -149,15 +169,26 @@ function parseLineInternal(trim, config, todayStr, defDur) {
         item.end = new Date(item.start.getTime() + defDur);
     }
 
-    item.title = item.title
+    // Clean Title: Remove known tags AND dynamic column tokens
+    let cleanTitle = item.title
         .replace(/^(\[\]|\[-\])\s*/, '')
-        .replace(/\[[ant]\]/gi, '')
+        //.replace(/\[[ant]\]/gi, '') // Legacy hardcoded removal replaced below
         .replace(/\[p[1-5]\]/gi, '')
-        .replace(/\[m[1-9]\]/gi, '') // Remove Marker Tag
+        .replace(/\[m[1-9]\]/gi, '') 
         .replace(/\[[se](z|t)?\s*[\d\-\.:]+\s*\]/gi, '')
         .replace(/\[w\s+[^\]]+\]/gi, '')
-        .replace(/\[bis\s+[^\]]+\]/gi, '')
-        .trim();
+        .replace(/\[bis\s+[^\]]+\]/gi, '');
+
+    // Remove dynamic column tokens from title
+    if (config.columns) {
+        config.columns.forEach(col => {
+            const esc = col.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(`\\[${esc}\\]`, 'gi');
+            cleanTitle = cleanTitle.replace(re, '');
+        });
+    }
+
+    item.title = cleanTitle.trim();
 
     if(isNaN(item.start)) return null;
 

@@ -1,0 +1,103 @@
+/* public/assets/css/mobile.css */
+/* Mobile Layout Overrides - Triggered by media query in HTML */
+
+/* 1. Generelles Layout aufbrechen */
+body {
+    height: auto !important;
+    overflow-y: auto !important; /* Scrollen des ganzen Body erlauben */
+    display: block !important; /* Flexbox-Zwang vom Desktop entfernen */
+}
+
+/* 2. Header anpassen */
+header {
+    height: auto !important;
+    flex-wrap: wrap;
+    padding: 10px;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Projekt-Auswahl und Logo volle Breite auf ganz kleinen Screens */
+.brand, #project-selector {
+    flex-grow: 1;
+}
+
+/* Buttons oben etwas größer und umbrechbar machen */
+header > div {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 5px;
+    border-top: 1px solid #333;
+    border-right: none !important;
+    margin-left: 0 !important;
+    zoom:0.75;
+}
+
+/* 3. Main Container Stack */
+main {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* 4. Editor Pane (Textfeld) */
+.editor-pane {
+    width: 100% !important; /* Inline-Styles vom Resizer überschreiben */
+    height: 100vh !important; /* Feste Höhe, damit man noch scrollen kann */
+    border-right: none !important;
+    border-bottom: 2px solid var(--border);
+    flex: none !important;
+    zoom: 0.75;
+}
+
+/* Toolbar Buttons für Touch optimieren */
+.editor-toolbar {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 0px;
+}
+.tool-btn {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 1rem;
+}
+
+/* 5. Kanban (Projections) */
+.projections-pane {
+    display:none !important;
+}
+
+/* Spaltenbreite auf Mobile anpassen */
+.lane {
+    min-width: 85vw !important; /* Eine Spalte fast so breit wie Screen */
+    scroll-snap-align: center; /* Einrasten beim Scrollen */
+}
+
+/* 6. Kalender Footer */
+footer#calendar-pane {
+    display:none !important;
+}
+
+/* 7. Unnötiges ausblenden */
+.resizer-x, .resizer-y {
+    display: none !important;
+}
+
+/* 8. Modals auf Mobile */
+.modal {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+}
+.modal-body {
+    max-height: calc(100vh - 120px) !important;
+}
+
+/* Generelle Touch-Optimierung */
+button, select, input {
+    min-height: 35px; /* Einfacher zu tippen */
+}

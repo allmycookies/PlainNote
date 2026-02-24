@@ -1,0 +1,87 @@
+/* public/assets/css/print.css */
+
+/* Nur aktiv im Druckmodus und wenn die Klasse gesetzt ist */
+@media print {
+    /* Alle UI-Elemente ausblenden */
+    header, 
+    .editor-toolbar, 
+    .cal-controls, 
+    .resizer-x, 
+    .resizer-y,
+    .update-notification,
+    .modal-overlay,
+    .version-badge,
+    .proj-actions,
+    .icon-btn,
+    .projections-pane,
+    footer#calendar-pane,
+    textarea#editor,
+    .tool-group,
+    #print-header, #print-footer { /* Standard Header verstecken falls vorhanden */
+        display: none !important;
+    }
+
+    /* Modus: EDITOR DRUCKEN */
+    body.print-view-editor {
+        background-color: white !important;
+        color: black !important;
+        height: auto !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+
+    body.print-view-editor .editor-pane {
+        width: 100% !important;
+        border: none !important;
+        display: block !important;
+        height: auto !important;
+    }
+
+    body.print-view-editor .editor-wrapper {
+        position: relative !important;
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+    
+    body.print-view-editor .editor-backdrop {
+        position: relative !important;
+        top: 0 !important; left: 0 !important;
+        color: black !important;
+        background: white !important;
+        overflow: visible !important;
+        white-space: pre-wrap !important;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 11pt !important;
+        line-height: 1.5 !important;
+        padding: 1cm !important;
+        width: 100% !important;
+    }
+
+    /* Highlighting für Druck anpassen (schwarz/weiß/grau) */
+    body.print-view-editor .hl-tag { color: #000; font-weight: bold; }
+    body.print-view-editor .hl-time { color: #333; }
+    body.print-view-editor .hl-date { color: #333; }
+    body.print-view-editor .hl-desc { color: #555; font-style: italic; }
+    body.print-view-editor .hl-marker { font-weight: bold; border: 1px solid #ccc; padding: 0 2px; }
+    body.print-view-editor .hl-prio { font-weight: bold; text-decoration: underline; }
+
+    /* Heading Marker im Druck (Graustufen Hintergründe falls Farbe stört, oder Farbe lassen) */
+    /* Update auf m-Tags */
+    body.print-view-editor .hl-m1, 
+    body.print-view-editor .hl-m2, 
+    body.print-view-editor .hl-m3, 
+    body.print-view-editor .hl-m4, 
+    body.print-view-editor .hl-m5, 
+    body.print-view-editor .hl-m6,
+    body.print-view-editor .hl-m7,
+    body.print-view-editor .hl-m8,
+    body.print-view-editor .hl-m9 {
+        border: 1px solid #999;
+        color: #000 !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+}
